@@ -1,0 +1,25 @@
+# Context Snapshot: zig-kafka-from-scratch
+
+- Task statement: Build a Kafka implementation in Zig from scratch.
+- Desired outcome: A clarified, execution-ready specification for the intended Kafka-in-Zig project.
+- Stated solution: Implement Kafka in Zig from scratch.
+- Probable intent hypothesis: The user wants a serious Zig systems project around Kafka, but the exact target (broker, client, protocol subset, educational clone, or production-grade system) is not yet defined.
+- Known facts/evidence:
+  - Repository currently contains only `docs/` and `scripts/`.
+  - There are no `.zig` source files, `build.zig`, or `build.zig.zon` files.
+  - Zig master language and stdlib references were downloaded into `docs/`.
+  - `omx explore` was attempted for read-only classification but failed due to a local permission error, so shell inspection was used as fallback.
+- Constraints:
+  - We are in `$deep-interview` requirements mode; no direct implementation yet.
+  - Need explicit non-goals and decision boundaries before handoff.
+- Unknowns/open questions:
+  - Is the goal a Kafka broker, client library, protocol toolkit, or a narrower experimental subset?
+  - Is correctness/compatibility with Apache Kafka the goal, or an educational reimplementation?
+  - Which versions/APIs/protocol features matter first?
+  - What scale/performance/reliability bar is expected?
+  - What can OMX decide without confirmation?
+- Decision-boundary unknowns:
+  - Whether to choose architecture, protocol scope, storage design, and test strategy autonomously.
+- Likely codebase touchpoints:
+  - New Zig project scaffolding in repository root.
+  - Existing `docs/` folder as local reference material.
