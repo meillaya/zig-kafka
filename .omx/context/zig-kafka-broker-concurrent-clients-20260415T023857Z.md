@@ -1,0 +1,23 @@
+# Context Snapshot: zig-kafka-broker-concurrent-clients
+
+- Task statement: Plan the next broker milestone after in-memory Produce: concurrent clients with serial request handling per connection.
+- Desired outcome: A concrete PRD and test spec for the next educational broker slice.
+- Known facts/evidence:
+  - The broker now supports bootstrap wire behavior, topic listing, static Fetch, and in-memory Produce. (`src/server/broker.zig`, `src/server/handlers/*.zig`, `src/server/storage.zig`)
+  - The current broker run loop accepts one connection and handles it inline before accepting the next, which is serial across clients. (`src/server/broker.zig`)
+  - The roadmap’s remaining near-term broker items explicitly call out concurrent clients / serial requests before more advanced concurrent requests. (`.omx/specs/deep-interview-zig-kafka-from-scratch.md:43-52`)
+  - Storage is now mutable and shared across Fetch/Produce, so any concurrency step must guard that shared state correctly. (`src/server/storage.zig`)
+- Constraints:
+  - Keep the milestone educational and bounded.
+  - Add concurrent clients, not full concurrent pipelined requests per single connection.
+  - Preserve deterministic broker behavior and all current milestones.
+- Unknowns/open questions:
+  - Whether to use detached per-connection threads or a tiny thread-per-connection ownership model with explicit joins.
+  - Whether requestStop should wait for in-flight handlers in this milestone or continue to be process-lifetime oriented.
+  - How much concurrency proof is enough: parallel ApiVersions only, or parallel Produce/Fetch mix.
+- Likely codebase touchpoints:
+  - `src/server/broker.zig`
+  - `src/server/storage.zig`
+  - possibly `src/server/request.zig`
+  - `tests/integration/**`
+  - `tests/unit/**`
