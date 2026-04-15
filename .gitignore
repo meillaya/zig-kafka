@@ -1,0 +1,9 @@
+.zig-cache/
+zig-out/
+.tmp/
+.omx/logs/
+.omx/state/
+.omx/metrics.json
+.omx/notepad.md
+.omx/tmux-hook.json
+.DS_Store
