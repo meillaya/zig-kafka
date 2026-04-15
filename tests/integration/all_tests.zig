@@ -4,4 +4,5 @@ test {
     _ = @import("broker_describe_topic_partitions_test.zig");
     _ = @import("broker_fetch_static_test.zig");
     _ = @import("broker_produce_static_test.zig");
+    _ = @import("broker_concurrent_clients_test.zig");
 }

@@ -19,6 +19,11 @@ pub const Broker = struct {
     storage: storage.Storage,
     stop_requested: std.atomic.Value(bool) = std.atomic.Value(bool).init(false),
 
+    const WorkerContext = struct {
+        broker: *Broker,
+        connection: std.net.Server.Connection,
+    };
+
     pub fn init(config: Config) !Broker {
         var address = try std.net.Address.parseIp(config.host, config.port);
         const server = try address.listen(.{ .reuse_address = config.reuse_address });
@@ -56,17 +61,26 @@ pub const Broker = struct {
 
     pub fn run(self: *Broker) !void {
         while (!self.stop_requested.load(.acquire)) {
-            var connection = self.server.accept() catch |err| {
+            const connection = self.server.accept() catch |err| {
                 if (self.stop_requested.load(.acquire)) return;
                 return err;
             };
-            defer connection.stream.close();
-            if (self.stop_requested.load(.acquire)) return;
-            self.handleConnection(&connection.stream) catch |err| switch (err) {
-                error.UnexpectedEOF => continue,
-                else => return err,
-            };
+            if (self.stop_requested.load(.acquire)) {
+                var closing = connection;
+                closing.stream.close();
+                return;
+            }
+            const ctx = try self.allocator.create(WorkerContext);
+            ctx.* = .{ .broker = self, .connection = connection };
+            const thread = try std.Thread.spawn(.{}, workerMain, .{ctx});
+            thread.detach();
         }
+    }
+
+    fn workerMain(ctx: *WorkerContext) void {
+        defer ctx.broker.allocator.destroy(ctx);
+        defer ctx.connection.stream.close();
+        ctx.broker.handleConnection(&ctx.connection.stream) catch {};
     }
 
     fn wrapResponse(self: *Broker, allocator: std.mem.Allocator, correlation_id: i32, header_version: u8, payload: []const u8) ![]u8 {
@@ -80,6 +94,7 @@ pub const Broker = struct {
     }
 
     fn handleConnection(self: *Broker, stream: *std.net.Stream) !void {
+        if (self.config.artificial_delay_ms > 0) std.Thread.sleep(@as(u64, self.config.artificial_delay_ms) * std.time.ns_per_ms);
         const frame = try request.readFrame(self.allocator, stream);
         var parsed = try request.parseOwnedFrame(frame);
         defer parsed.deinit(self.allocator);

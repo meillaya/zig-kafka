@@ -20,9 +20,9 @@ const SeedPartition = struct {
 
 const seed_partitions = [_]SeedPartition{
     .{ .topic_name = "broker-topic-a", .partition_index = 0, .records = &.{ "broker-topic-a-p0-r0", "broker-topic-a-p0-r1" } },
-    .{ .topic_name = "broker-topic-a", .partition_index = 1, .records = &.{ "broker-topic-a-p1-r0" } },
+    .{ .topic_name = "broker-topic-a", .partition_index = 1, .records = &.{"broker-topic-a-p1-r0"} },
     .{ .topic_name = "broker-topic-a", .partition_index = 2, .records = &.{} },
-    .{ .topic_name = "broker-topic-b", .partition_index = 0, .records = &.{ "broker-topic-b-p0-r0" } },
+    .{ .topic_name = "broker-topic-b", .partition_index = 0, .records = &.{"broker-topic-b-p0-r0"} },
 };
 
 pub const PartitionStore = struct {
@@ -44,6 +44,7 @@ pub const AppendResult = struct {
 
 pub const Storage = struct {
     allocator: std.mem.Allocator,
+    mutex: std.Thread.Mutex = .{},
     partitions: []PartitionStore,
 
     pub fn init(allocator: std.mem.Allocator) !Storage {
@@ -84,6 +85,8 @@ pub const Storage = struct {
     }
 
     pub fn selectRecords(self: *Storage, topic_name: []const u8, partition_index: i32, offset: i64) !FetchSelection {
+        self.mutex.lock();
+        defer self.mutex.unlock();
         const topic = catalog.findTopic(topic_name) orelse return error.UnknownTopicOrPartition;
         if (partition_index < 0 or partition_index >= topic.partition_count) return error.UnknownTopicOrPartition;
         const partition = self.findPartitionPtr(topic_name, partition_index) orelse return error.UnknownTopicOrPartition;
@@ -102,17 +105,15 @@ pub const Storage = struct {
     }
 
     pub fn appendRecords(self: *Storage, topic_name: []const u8, partition_index: i32, records: []const record_batch.DecodedRecord) !AppendResult {
+        self.mutex.lock();
+        defer self.mutex.unlock();
         const topic = catalog.findTopic(topic_name) orelse return error.UnknownTopicOrPartition;
         if (partition_index < 0 or partition_index >= topic.partition_count) return error.UnknownTopicOrPartition;
         const partition = self.findPartitionPtr(topic_name, partition_index) orelse return error.UnknownTopicOrPartition;
         const base_offset: i64 = @intCast(partition.records.items.len);
         for (records) |record| {
-            const value = record.value orelse try self.allocator.dupe(u8, "");
-            if (record.value == null) {
-                try partition.records.append(.{ .value = value });
-            } else {
-                try partition.records.append(.{ .value = try self.allocator.dupe(u8, value) });
-            }
+            const source = record.value orelse "";
+            try partition.records.append(.{ .value = try self.allocator.dupe(u8, source) });
         }
         return .{ .base_offset = base_offset, .high_watermark = @intCast(partition.records.items.len) };
     }
