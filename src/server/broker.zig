@@ -2,8 +2,10 @@ const std = @import("std");
 const Config = @import("config.zig").Config;
 const request = @import("request.zig");
 const api_versions = @import("../protocol/api_versions.zig");
+const describe = @import("../protocol/describe_topic_partitions.zig");
 const error_codes = @import("../protocol/error_codes.zig");
 const api_versions_handler = @import("handlers/api_versions.zig");
+const describe_handler = @import("handlers/describe_topic_partitions.zig");
 
 pub const Broker = struct {
     allocator: std.mem.Allocator,
@@ -64,17 +66,27 @@ pub const Broker = struct {
         var parsed = try request.parseOwnedFrame(frame);
         defer parsed.deinit(self.allocator);
 
-        if (parsed.api_key != api_versions.api_key) {
-            return;
+        switch (parsed.api_key) {
+            api_versions.api_key => {
+                const error_code: i16 = if (parsed.api_version < api_versions.min_version or parsed.api_version > api_versions.max_version)
+                    @intFromEnum(error_codes.KafkaCode.unsupported_version)
+                else
+                    0;
+                const response = try api_versions_handler.encodeResponse(self.allocator, parsed.correlation_id, error_code);
+                defer self.allocator.free(response);
+                try request.writeFrame(stream, response);
+            },
+            describe.api_key => {
+                if (parsed.api_version < describe.min_version or parsed.api_version > describe.max_version) return;
+                var req = try describe.parseRequest(self.allocator, parsed.body);
+                defer describe.deinitRequest(self.allocator, &req);
+                var resp = try describe_handler.handle(self.allocator, req);
+                defer describe.deinitResponse(self.allocator, &resp);
+                const response = try describe_handler.encodeResponse(self.allocator, parsed.correlation_id, resp);
+                defer self.allocator.free(response);
+                try request.writeFrame(stream, response);
+            },
+            else => return,
         }
-
-        const error_code: i16 = if (parsed.api_version < api_versions.min_version or parsed.api_version > api_versions.max_version)
-            @intFromEnum(error_codes.KafkaCode.unsupported_version)
-        else
-            0;
-
-        const response = try api_versions_handler.encodeResponse(self.allocator, parsed.correlation_id, error_code);
-        defer self.allocator.free(response);
-        try request.writeFrame(stream, response);
     }
 };

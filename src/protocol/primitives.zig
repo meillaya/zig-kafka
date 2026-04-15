@@ -40,10 +40,16 @@ pub const Reader = struct {
         return try allocator.dupe(u8, bytes);
     }
 
-
     pub fn readStringRef(self: *Reader) ProtocolError![]const u8 {
         const len = try self.readInt(i16);
         if (len < 0) return error.NegativeLength;
+        return try self.readBytes(@intCast(len));
+    }
+
+
+    pub fn readNullableStringRef(self: *Reader) ProtocolError!?[]const u8 {
+        const len = try self.readInt(i16);
+        if (len < 0) return null;
         return try self.readBytes(@intCast(len));
     }
 
@@ -54,10 +60,53 @@ pub const Reader = struct {
         return try allocator.dupe(u8, bytes);
     }
 
+    pub fn readCompactString(self: *Reader, allocator: std.mem.Allocator) ![]u8 {
+        const value = try readUnsignedVarInt(self);
+        if (value == 0) return error.NegativeLength;
+        const bytes = try self.readBytes(value - 1);
+        return try allocator.dupe(u8, bytes);
+    }
+
+    pub fn readCompactStringRef(self: *Reader) ![]const u8 {
+        const value = try readUnsignedVarInt(self);
+        if (value == 0) return error.NegativeLength;
+        return try self.readBytes(value - 1);
+    }
+
+    pub fn readCompactNullableString(self: *Reader, allocator: std.mem.Allocator) !?[]u8 {
+        const value = try readUnsignedVarInt(self);
+        if (value == 0) return null;
+        const bytes = try self.readBytes(value - 1);
+        return try allocator.dupe(u8, bytes);
+    }
+
+    pub fn readCompactNullableStringRef(self: *Reader) !?[]const u8 {
+        const value = try readUnsignedVarInt(self);
+        if (value == 0) return null;
+        return try self.readBytes(value - 1);
+    }
+
     pub fn readCompactArrayLen(self: *Reader) !usize {
         const value = try readUnsignedVarInt(self);
         if (value == 0) return 0;
         return value - 1;
+    }
+
+    pub fn readUuid(self: *Reader) ![16]u8 {
+        const bytes = try self.readBytes(16);
+        var out: [16]u8 = undefined;
+        @memcpy(&out, bytes);
+        return out;
+    }
+
+    pub fn skipTaggedFields(self: *Reader) !void {
+        const count = try readUnsignedVarInt(self);
+        var i: usize = 0;
+        while (i < count) : (i += 1) {
+            _ = try readUnsignedVarInt(self); // tag
+            const len = try readUnsignedVarInt(self);
+            _ = try self.readBytes(len);
+        }
     }
 
     pub fn readArray(self: *Reader, comptime T: type, allocator: std.mem.Allocator, reader_fn: fn (*Reader, std.mem.Allocator) anyerror!T) ![]T {
@@ -65,10 +114,7 @@ pub const Reader = struct {
         if (len < 0) return error.NegativeLength;
         const out = try allocator.alloc(T, @intCast(len));
         errdefer allocator.free(out);
-        for (out, 0..) |*item, i| {
-            _ = i;
-            item.* = try reader_fn(self, allocator);
-        }
+        for (out) |*item| item.* = try reader_fn(self, allocator);
         return out;
     }
 };
@@ -96,6 +142,19 @@ pub fn appendNullableString(list: *std.array_list.Managed(u8), value: ?[]const u
     }
 }
 
+pub fn appendCompactString(list: *std.array_list.Managed(u8), value: []const u8) !void {
+    try writeUnsignedVarInt(list, value.len + 1);
+    try list.appendSlice(value);
+}
+
+pub fn appendCompactNullableString(list: *std.array_list.Managed(u8), value: ?[]const u8) !void {
+    if (value) |str| {
+        try appendCompactString(list, str);
+    } else {
+        try writeUnsignedVarInt(list, 0);
+    }
+}
+
 pub fn appendNullableBytes(list: *std.array_list.Managed(u8), value: ?[]const u8) !void {
     if (value) |bytes| {
         try appendInt(list, i32, @intCast(bytes.len));
@@ -107,6 +166,18 @@ pub fn appendNullableBytes(list: *std.array_list.Managed(u8), value: ?[]const u8
 
 pub fn appendArrayLen(list: *std.array_list.Managed(u8), len: usize) !void {
     try appendInt(list, i32, @intCast(len));
+}
+
+pub fn appendCompactArrayLen(list: *std.array_list.Managed(u8), len: usize) !void {
+    try writeUnsignedVarInt(list, len + 1);
+}
+
+pub fn appendUuid(list: *std.array_list.Managed(u8), value: [16]u8) !void {
+    try list.appendSlice(&value);
+}
+
+pub fn appendEmptyTaggedFields(list: *std.array_list.Managed(u8)) !void {
+    try writeUnsignedVarInt(list, 0);
 }
 
 pub fn writeUnsignedVarInt(list: *std.array_list.Managed(u8), value: u64) !void {

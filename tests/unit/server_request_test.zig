@@ -23,7 +23,7 @@ test "server request parses header fields and body via production parser" {
     try std.testing.expectEqual(req_header.api_key, parsed.api_key);
     try std.testing.expectEqual(req_header.api_version, parsed.api_version);
     try std.testing.expectEqual(req_header.correlation_id, parsed.correlation_id);
-    try std.testing.expectEqualStrings(req_header.client_id, parsed.client_id);
+    try std.testing.expectEqualStrings(req_header.client_id.?, parsed.client_id.?);
     try std.testing.expectEqualStrings("bootstrap-payload", parsed.body);
 }
 

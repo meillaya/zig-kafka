@@ -1,12 +1,14 @@
 const std = @import("std");
 const header = @import("../protocol/header.zig");
+const api_versions = @import("../protocol/api_versions.zig");
+const describe = @import("../protocol/describe_topic_partitions.zig");
 
 pub const ParsedRequest = struct {
     frame: []u8,
     api_key: i16,
     api_version: i16,
     correlation_id: i32,
-    client_id: []const u8,
+    client_id: ?[]const u8,
     body: []const u8,
 
     pub fn deinit(self: *ParsedRequest, allocator: std.mem.Allocator) void {
@@ -14,6 +16,16 @@ pub const ParsedRequest = struct {
         self.* = undefined;
     }
 };
+
+fn headerVersionFor(api_key: i16, api_version: i16) u8 {
+    if (api_key == describe.api_key and api_version >= describe.min_version and api_version <= describe.max_version) {
+        return describe.request_header_version;
+    }
+    if (api_key == api_versions.api_key and api_version >= api_versions.min_version and api_version <= api_versions.max_version) {
+        return 1;
+    }
+    return 1;
+}
 
 pub fn readFrame(allocator: std.mem.Allocator, stream: *std.net.Stream) ![]u8 {
     var size_buf: [4]u8 = undefined;
@@ -29,16 +41,18 @@ pub fn readFrame(allocator: std.mem.Allocator, stream: *std.net.Stream) ![]u8 {
 }
 
 pub fn parseOwnedFrame(frame: []u8) !ParsedRequest {
+    if (frame.len < 8) return error.UnexpectedEOF;
+    const api_key = std.mem.readInt(i16, frame[0..2], .big);
+    const api_version = std.mem.readInt(i16, frame[2..4], .big);
     var reader = kafka.protocol.primitives.Reader.init(frame);
-    const req_header = try header.RequestHeader.decodeRef(&reader);
-    const body = frame[reader.index..];
+    const req_header = try header.RequestHeader.decodeRefVersion(&reader, headerVersionFor(api_key, api_version));
     return .{
         .frame = frame,
         .api_key = req_header.api_key,
         .api_version = req_header.api_version,
         .correlation_id = req_header.correlation_id,
         .client_id = req_header.client_id,
-        .body = body,
+        .body = frame[reader.index..],
     };
 }
 

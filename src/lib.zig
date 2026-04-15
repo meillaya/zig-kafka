@@ -13,6 +13,7 @@ pub const protocol = struct {
     pub const fetch = @import("protocol/fetch.zig");
     pub const record_batch = @import("protocol/record_batch.zig");
     pub const error_codes = @import("protocol/error_codes.zig");
+    pub const describe_topic_partitions = @import("protocol/describe_topic_partitions.zig");
 };
 
 
@@ -20,5 +21,7 @@ pub const server = struct {
     pub const Config = @import("server/config.zig").Config;
     pub const Broker = @import("server/broker.zig").Broker;
     pub const request = @import("server/request.zig");
+    pub const catalog = @import("server/catalog.zig");
     pub const api_versions_handler = @import("server/handlers/api_versions.zig");
+    pub const describe_topic_partitions_handler = @import("server/handlers/describe_topic_partitions.zig");
 };
