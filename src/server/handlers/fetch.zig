@@ -4,7 +4,7 @@ const record_batch = @import("../../protocol/record_batch.zig");
 const error_codes = @import("../../protocol/error_codes.zig");
 const storage = @import("../storage.zig");
 
-pub fn handle(allocator: std.mem.Allocator, request: fetch.Request) !fetch.ResponseBody {
+pub fn handle(allocator: std.mem.Allocator, state: *storage.Storage, request: fetch.Request) !fetch.ResponseBody {
     const topics = try allocator.alloc(fetch.ResponseTopic, request.topics.len);
     var topics_filled: usize = 0;
     errdefer {
@@ -21,7 +21,7 @@ pub fn handle(allocator: std.mem.Allocator, request: fetch.Request) !fetch.Respo
         for (topic_req.partitions, 0..) |part_req, p_idx| {
             var selection: storage.FetchSelection = undefined;
             var error_code: i16 = @intFromEnum(error_codes.KafkaCode.none);
-            if (storage.selectRecords(allocator, topic_req.topic_name, part_req.partition, part_req.fetch_offset)) |ok| {
+            if (state.selectRecords(topic_req.topic_name, part_req.partition, part_req.fetch_offset)) |ok| {
                 selection = ok;
             } else |err| switch (err) {
                 error.UnknownTopicOrPartition => {

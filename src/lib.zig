@@ -26,4 +26,5 @@ pub const server = struct {
     pub const api_versions_handler = @import("server/handlers/api_versions.zig");
     pub const describe_topic_partitions_handler = @import("server/handlers/describe_topic_partitions.zig");
     pub const fetch_handler = @import("server/handlers/fetch.zig");
+    pub const produce_handler = @import("server/handlers/produce.zig");
 };

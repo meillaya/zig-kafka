@@ -3,6 +3,7 @@ const kafka = @import("zig-kafka");
 
 const fetch = kafka.protocol.fetch;
 const handler = kafka.server.fetch_handler;
+const storage_mod = kafka.server.storage;
 
 test "fetch handler returns known and unknown partition results deterministically" {
     const req_topics = [_]fetch.RequestTopic{.{
@@ -24,7 +25,9 @@ test "fetch handler returns known and unknown partition results deterministicall
     };
     defer request.deinit(std.testing.allocator);
 
-    var response = try handler.handle(std.testing.allocator, request);
+    var storage = try storage_mod.Storage.init(std.testing.allocator);
+    defer storage.deinit();
+    var response = try handler.handle(std.testing.allocator, &storage, request);
     defer handler.deinitResponseBody(std.testing.allocator, &response);
     try std.testing.expectEqual(@as(usize, 1), response.topics.len);
     try std.testing.expectEqual(@as(usize, 2), response.topics[0].partitions.len);

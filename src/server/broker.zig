@@ -4,15 +4,19 @@ const request = @import("request.zig");
 const api_versions = @import("../protocol/api_versions.zig");
 const describe = @import("../protocol/describe_topic_partitions.zig");
 const fetch = @import("../protocol/fetch.zig");
+const produce = @import("../protocol/produce.zig");
 const error_codes = @import("../protocol/error_codes.zig");
 const api_versions_handler = @import("handlers/api_versions.zig");
 const describe_handler = @import("handlers/describe_topic_partitions.zig");
 const fetch_handler = @import("handlers/fetch.zig");
+const produce_handler = @import("handlers/produce.zig");
+const storage = @import("storage.zig");
 
 pub const Broker = struct {
     allocator: std.mem.Allocator,
     config: Config,
     server: std.net.Server,
+    storage: storage.Storage,
     stop_requested: std.atomic.Value(bool) = std.atomic.Value(bool).init(false),
 
     pub fn init(config: Config) !Broker {
@@ -22,10 +26,12 @@ pub const Broker = struct {
             .allocator = config.allocator,
             .config = config,
             .server = server,
+            .storage = try storage.Storage.init(config.allocator),
         };
     }
 
     pub fn deinit(self: *Broker) void {
+        self.storage.deinit();
         self.server.deinit();
         self.* = undefined;
     }
@@ -102,9 +108,21 @@ pub const Broker = struct {
                 if (parsed.api_version < fetch.min_version or parsed.api_version > fetch.max_version) return;
                 var req = try fetch.parseRequest(self.allocator, parsed.body);
                 defer req.deinit(self.allocator);
-                var resp = try fetch_handler.handle(self.allocator, req);
+                var resp = try fetch_handler.handle(self.allocator, &self.storage, req);
                 defer fetch_handler.deinitResponseBody(self.allocator, &resp);
                 const payload = try fetch.encodeResponse(self.allocator, resp);
+                defer self.allocator.free(payload);
+                const response = try self.wrapResponse(self.allocator, parsed.correlation_id, 0, payload);
+                defer self.allocator.free(response);
+                try request.writeFrame(stream, response);
+            },
+            produce.api_key => {
+                if (parsed.api_version < produce.min_version or parsed.api_version > produce.max_version) return;
+                var req = try produce.parseRequest(self.allocator, parsed.body);
+                defer req.deinit(self.allocator);
+                var resp = try produce_handler.handle(self.allocator, &self.storage, req);
+                defer produce_handler.deinitResponseBody(self.allocator, &resp);
+                const payload = try produce.encodeResponse(self.allocator, resp);
                 defer self.allocator.free(payload);
                 const response = try self.wrapResponse(self.allocator, parsed.correlation_id, 0, payload);
                 defer self.allocator.free(response);
