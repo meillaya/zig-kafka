@@ -48,3 +48,23 @@ pub fn deinitResponseBody(allocator: std.mem.Allocator, body: *produce.ResponseB
     allocator.free(body.topics);
     body.* = undefined;
 }
+
+pub fn unsupportedVersionResponseBody(allocator: std.mem.Allocator, request: produce.Request) !produce.ResponseBody {
+    const topics = try allocator.alloc(produce.ResponseTopic, request.topics.len);
+    errdefer allocator.free(topics);
+    for (request.topics, 0..) |topic_req, idx| {
+        const partitions = try allocator.alloc(produce.PartitionResponse, topic_req.partitions.len);
+        errdefer allocator.free(partitions);
+        for (topic_req.partitions, 0..) |part_req, p_idx| {
+            partitions[p_idx] = .{
+                .partition = part_req.partition,
+                .error_code = @intFromEnum(error_codes.KafkaCode.unsupported_version),
+                .base_offset = -1,
+                .log_append_time_ms = -1,
+                .log_start_offset = 0,
+            };
+        }
+        topics[idx] = .{ .topic_name = topic_req.topic_name, .partitions = partitions };
+    }
+    return .{ .topics = topics, .throttle_time_ms = 0 };
+}

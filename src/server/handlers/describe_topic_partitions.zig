@@ -91,3 +91,19 @@ pub fn encodeResponse(allocator: std.mem.Allocator, correlation_id: i32, respons
     try message.appendSlice(payload);
     return message.toOwnedSlice();
 }
+
+pub fn unsupportedVersionResponse(allocator: std.mem.Allocator, request: describe.Request) !describe.Response {
+    const topics = try allocator.alloc(describe.TopicResponse, request.topics.len);
+    errdefer allocator.free(topics);
+    for (request.topics, 0..) |topic_req, idx| {
+        topics[idx] = .{
+            .error_code = @intFromEnum(error_codes.KafkaCode.unsupported_version),
+            .name = try allocator.dupe(u8, topic_req.name),
+            .topic_id = zero_uuid,
+            .is_internal = false,
+            .partitions = try allocator.alloc(describe.Partition, 0),
+            .topic_authorized_operations = 0,
+        };
+    }
+    return .{ .throttle_time_ms = 0, .topics = topics, .next_cursor_topic_name = null, .next_cursor_partition_index = -1 };
+}

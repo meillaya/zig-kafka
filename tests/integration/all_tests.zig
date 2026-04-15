@@ -7,4 +7,5 @@ test {
     _ = @import("broker_concurrent_clients_test.zig");
     _ = @import("broker_pipelined_requests_test.zig");
     _ = @import("broker_graceful_shutdown_test.zig");
+    _ = @import("broker_error_semantics_test.zig");
 }
