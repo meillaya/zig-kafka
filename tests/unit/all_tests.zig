@@ -7,6 +7,8 @@ test {
     _ = @import("api_versions_test.zig");
     _ = @import("metadata_codec_test.zig");
     _ = @import("record_batch_test.zig");
+    _ = @import("server_api_versions_test.zig");
+    _ = @import("server_request_test.zig");
     _ = @import("produce_codec_test.zig");
     _ = @import("fetch_codec_test.zig");
 }

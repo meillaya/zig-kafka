@@ -3,7 +3,6 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-
     const lib_mod = b.addModule("zig-kafka", .{
         .root_source_file = b.path("src/lib.zig"),
         .target = target,
@@ -36,6 +35,24 @@ pub fn build(b: *std.Build) void {
     if (b.args) |args| run_integration_tests.addArgs(args);
     const integration_step = b.step("test-integration", "Run integration tests against Kafka");
     integration_step.dependOn(&run_integration_tests.step);
+
+    const broker_mod = b.createModule(.{
+        .root_source_file = b.path("examples/broker.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    broker_mod.addImport("zig-kafka", lib_mod);
+
+    const broker_exe = b.addExecutable(.{
+        .name = "broker",
+        .root_module = broker_mod,
+    });
+    b.installArtifact(broker_exe);
+
+    const run_broker = b.addRunArtifact(broker_exe);
+    if (b.args) |args| run_broker.addArgs(args);
+    const run_broker_step = b.step("run-broker", "Run the educational Kafka broker");
+    run_broker_step.dependOn(&run_broker.step);
 
     const example_mod = b.createModule(.{
         .root_source_file = b.path("examples/roundtrip.zig"),

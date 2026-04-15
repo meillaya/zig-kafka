@@ -1,0 +1,80 @@
+const std = @import("std");
+const Config = @import("config.zig").Config;
+const request = @import("request.zig");
+const api_versions = @import("../protocol/api_versions.zig");
+const error_codes = @import("../protocol/error_codes.zig");
+const api_versions_handler = @import("handlers/api_versions.zig");
+
+pub const Broker = struct {
+    allocator: std.mem.Allocator,
+    config: Config,
+    server: std.net.Server,
+    stop_requested: std.atomic.Value(bool) = std.atomic.Value(bool).init(false),
+
+    pub fn init(config: Config) !Broker {
+        var address = try std.net.Address.parseIp(config.host, config.port);
+        const server = try address.listen(.{ .reuse_address = config.reuse_address });
+        return .{
+            .allocator = config.allocator,
+            .config = config,
+            .server = server,
+        };
+    }
+
+    pub fn deinit(self: *Broker) void {
+        self.server.deinit();
+        self.* = undefined;
+    }
+
+    pub fn localPort(self: *const Broker) u16 {
+        return self.server.listen_address.getPort();
+    }
+
+    pub fn requestStop(self: *Broker) void {
+        self.stop_requested.store(true, .release);
+        const wake_addr = std.net.Address.parseIp(self.config.host, self.localPort()) catch return;
+        var stream = std.net.tcpConnectToAddress(wake_addr) catch return;
+        stream.close();
+    }
+
+    pub fn serveOnce(self: *Broker) !void {
+        var connection = try self.server.accept();
+        defer connection.stream.close();
+        if (self.stop_requested.load(.acquire)) return;
+        try self.handleConnection(&connection.stream);
+    }
+
+    pub fn run(self: *Broker) !void {
+        while (!self.stop_requested.load(.acquire)) {
+            var connection = self.server.accept() catch |err| {
+                if (self.stop_requested.load(.acquire)) return;
+                return err;
+            };
+            defer connection.stream.close();
+            if (self.stop_requested.load(.acquire)) return;
+            self.handleConnection(&connection.stream) catch |err| switch (err) {
+                error.UnexpectedEOF => continue,
+                else => return err,
+            };
+        }
+    }
+
+    fn handleConnection(self: *Broker, stream: *std.net.Stream) !void {
+        const frame = try request.readFrame(self.allocator, stream);
+        var parsed = try request.parseOwnedFrame(frame);
+        defer parsed.deinit(self.allocator);
+
+        if (parsed.api_key != api_versions.api_key) {
+            return;
+        }
+
+        const error_code: i16 = if (parsed.api_version < api_versions.min_version or parsed.api_version > api_versions.max_version)
+            @intFromEnum(error_codes.KafkaCode.unsupported_version)
+        else
+            0;
+
+        const response = try api_versions_handler.encodeResponse(self.allocator, parsed.correlation_id, error_code);
+        defer self.allocator.free(response);
+        try request.writeFrame(stream, response);
+    }
+};

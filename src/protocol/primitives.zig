@@ -40,6 +40,13 @@ pub const Reader = struct {
         return try allocator.dupe(u8, bytes);
     }
 
+
+    pub fn readStringRef(self: *Reader) ProtocolError![]const u8 {
+        const len = try self.readInt(i16);
+        if (len < 0) return error.NegativeLength;
+        return try self.readBytes(@intCast(len));
+    }
+
     pub fn readNullableString(self: *Reader, allocator: std.mem.Allocator) !?[]u8 {
         const len = try self.readInt(i16);
         if (len < 0) return null;

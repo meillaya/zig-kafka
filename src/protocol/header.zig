@@ -7,6 +7,15 @@ pub const RequestHeader = struct {
     correlation_id: i32,
     client_id: []const u8,
 
+    pub fn decodeRef(reader: *primitives.Reader) !RequestHeader {
+        return .{
+            .api_key = try reader.readInt(i16),
+            .api_version = try reader.readInt(i16),
+            .correlation_id = try reader.readInt(i32),
+            .client_id = try reader.readStringRef(),
+        };
+    }
+
     pub fn encode(self: RequestHeader, list: *std.array_list.Managed(u8)) !void {
         try primitives.appendInt(list, i16, self.api_key);
         try primitives.appendInt(list, i16, self.api_version);
@@ -17,6 +26,10 @@ pub const RequestHeader = struct {
 
 pub const ResponseHeader = struct {
     correlation_id: i32,
+
+    pub fn encode(self: ResponseHeader, list: *std.array_list.Managed(u8)) !void {
+        try primitives.appendInt(list, i32, self.correlation_id);
+    }
 
     pub fn decode(reader: *primitives.Reader) !ResponseHeader {
         return .{ .correlation_id = try reader.readInt(i32) };

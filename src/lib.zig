@@ -14,3 +14,11 @@ pub const protocol = struct {
     pub const record_batch = @import("protocol/record_batch.zig");
     pub const error_codes = @import("protocol/error_codes.zig");
 };
+
+
+pub const server = struct {
+    pub const Config = @import("server/config.zig").Config;
+    pub const Broker = @import("server/broker.zig").Broker;
+    pub const request = @import("server/request.zig");
+    pub const api_versions_handler = @import("server/handlers/api_versions.zig");
+};
