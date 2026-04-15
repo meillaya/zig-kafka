@@ -1,0 +1,26 @@
+# Context Snapshot: zig-kafka-broker-bootstrap
+
+- Task statement: Plan the next milestone after the completed phase-1 Zig Kafka client: the first educational single-broker server slice.
+- Desired outcome: A concrete PRD and test spec for the smallest useful Kafka-like broker milestone.
+- Known facts/evidence:
+  - The repo now has a working Zig client library scaffold, protocol codecs, integration harness, and roundtrip example.
+  - `build.zig` currently wires client-oriented unit tests, integration tests, and the roundtrip example only. (`build.zig:3-57`)
+  - `src/lib.zig` exports the shared protocol layer, including `header` and `api_versions`, which can be reused by a server implementation. (`src/lib.zig:1-16`)
+  - Request header encoding and response-header correlation-id decoding are already implemented in `src/protocol/header.zig`. (`src/protocol/header.zig:4-24`)
+  - `ApiVersions` request/response parsing plus negotiated-version selection already exist in `src/protocol/api_versions.zig`. (`src/protocol/api_versions.zig:5-58`)
+  - The earlier deep interview established that the educational single-broker server is the next long-term track after the client, and the user provided a staged roadmap starting with port binding, correlation IDs, API version parsing, and `ApiVersions` handling. (`.omx/specs/deep-interview-zig-kafka-from-scratch.md:43-52`)
+- Constraints:
+  - Keep the next milestone narrow and educational.
+  - Do not expand immediately into Fetch/Produce/storage/topic listing unless explicitly planned.
+  - Reuse the shared protocol layer where it helps; do not fork protocol definitions unnecessarily.
+- Unknowns/open questions:
+  - Whether the broker executable should be exported via `src/lib.zig` or stay as an internal app target initially.
+  - Whether multi-client acceptance should be in the first slice or deferred to the next one.
+  - Whether unsupported APIs should return an error envelope or simply close the connection in v0.
+- Likely codebase touchpoints:
+  - `build.zig`
+  - `src/lib.zig`
+  - new `src/server/**`
+  - new `examples/` or `app/` broker entrypoint
+  - `tests/unit/**`
+  - `tests/integration/**`
