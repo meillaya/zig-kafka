@@ -94,56 +94,61 @@ pub const Broker = struct {
     }
 
     fn handleConnection(self: *Broker, stream: *std.net.Stream) !void {
-        if (self.config.artificial_delay_ms > 0) std.Thread.sleep(@as(u64, self.config.artificial_delay_ms) * std.time.ns_per_ms);
-        const frame = try request.readFrame(self.allocator, stream);
-        var parsed = try request.parseOwnedFrame(frame);
-        defer parsed.deinit(self.allocator);
+        while (true) {
+            if (self.config.artificial_delay_ms > 0) std.Thread.sleep(@as(u64, self.config.artificial_delay_ms) * std.time.ns_per_ms);
+            const frame = request.readFrame(self.allocator, stream) catch |err| switch (err) {
+                error.EndOfStream => return,
+                else => return err,
+            };
+            var parsed = try request.parseOwnedFrame(frame);
+            defer parsed.deinit(self.allocator);
 
-        switch (parsed.api_key) {
-            api_versions.api_key => {
-                const error_code: i16 = if (parsed.api_version < api_versions.min_version or parsed.api_version > api_versions.max_version)
-                    @intFromEnum(error_codes.KafkaCode.unsupported_version)
-                else
-                    0;
-                const response = try api_versions_handler.encodeResponse(self.allocator, parsed.correlation_id, error_code);
-                defer self.allocator.free(response);
-                try request.writeFrame(stream, response);
-            },
-            describe.api_key => {
-                if (parsed.api_version < describe.min_version or parsed.api_version > describe.max_version) return;
-                var req = try describe.parseRequest(self.allocator, parsed.body);
-                defer describe.deinitRequest(self.allocator, &req);
-                var resp = try describe_handler.handle(self.allocator, req);
-                defer describe.deinitResponse(self.allocator, &resp);
-                const response = try describe_handler.encodeResponse(self.allocator, parsed.correlation_id, resp);
-                defer self.allocator.free(response);
-                try request.writeFrame(stream, response);
-            },
-            fetch.api_key => {
-                if (parsed.api_version < fetch.min_version or parsed.api_version > fetch.max_version) return;
-                var req = try fetch.parseRequest(self.allocator, parsed.body);
-                defer req.deinit(self.allocator);
-                var resp = try fetch_handler.handle(self.allocator, &self.storage, req);
-                defer fetch_handler.deinitResponseBody(self.allocator, &resp);
-                const payload = try fetch.encodeResponse(self.allocator, resp);
-                defer self.allocator.free(payload);
-                const response = try self.wrapResponse(self.allocator, parsed.correlation_id, 0, payload);
-                defer self.allocator.free(response);
-                try request.writeFrame(stream, response);
-            },
-            produce.api_key => {
-                if (parsed.api_version < produce.min_version or parsed.api_version > produce.max_version) return;
-                var req = try produce.parseRequest(self.allocator, parsed.body);
-                defer req.deinit(self.allocator);
-                var resp = try produce_handler.handle(self.allocator, &self.storage, req);
-                defer produce_handler.deinitResponseBody(self.allocator, &resp);
-                const payload = try produce.encodeResponse(self.allocator, resp);
-                defer self.allocator.free(payload);
-                const response = try self.wrapResponse(self.allocator, parsed.correlation_id, 0, payload);
-                defer self.allocator.free(response);
-                try request.writeFrame(stream, response);
-            },
-            else => return,
+            switch (parsed.api_key) {
+                api_versions.api_key => {
+                    const error_code: i16 = if (parsed.api_version < api_versions.min_version or parsed.api_version > api_versions.max_version)
+                        @intFromEnum(error_codes.KafkaCode.unsupported_version)
+                    else
+                        0;
+                    const response = try api_versions_handler.encodeResponse(self.allocator, parsed.correlation_id, error_code);
+                    defer self.allocator.free(response);
+                    try request.writeFrame(stream, response);
+                },
+                describe.api_key => {
+                    if (parsed.api_version < describe.min_version or parsed.api_version > describe.max_version) return;
+                    var req = try describe.parseRequest(self.allocator, parsed.body);
+                    defer describe.deinitRequest(self.allocator, &req);
+                    var resp = try describe_handler.handle(self.allocator, req);
+                    defer describe.deinitResponse(self.allocator, &resp);
+                    const response = try describe_handler.encodeResponse(self.allocator, parsed.correlation_id, resp);
+                    defer self.allocator.free(response);
+                    try request.writeFrame(stream, response);
+                },
+                fetch.api_key => {
+                    if (parsed.api_version < fetch.min_version or parsed.api_version > fetch.max_version) return;
+                    var req = try fetch.parseRequest(self.allocator, parsed.body);
+                    defer req.deinit(self.allocator);
+                    var resp = try fetch_handler.handle(self.allocator, &self.storage, req);
+                    defer fetch_handler.deinitResponseBody(self.allocator, &resp);
+                    const payload = try fetch.encodeResponse(self.allocator, resp);
+                    defer self.allocator.free(payload);
+                    const response = try self.wrapResponse(self.allocator, parsed.correlation_id, 0, payload);
+                    defer self.allocator.free(response);
+                    try request.writeFrame(stream, response);
+                },
+                produce.api_key => {
+                    if (parsed.api_version < produce.min_version or parsed.api_version > produce.max_version) return;
+                    var req = try produce.parseRequest(self.allocator, parsed.body);
+                    defer req.deinit(self.allocator);
+                    var resp = try produce_handler.handle(self.allocator, &self.storage, req);
+                    defer produce_handler.deinitResponseBody(self.allocator, &resp);
+                    const payload = try produce.encodeResponse(self.allocator, resp);
+                    defer self.allocator.free(payload);
+                    const response = try self.wrapResponse(self.allocator, parsed.correlation_id, 0, payload);
+                    defer self.allocator.free(response);
+                    try request.writeFrame(stream, response);
+                },
+                else => return,
+            }
         }
     }
 };
