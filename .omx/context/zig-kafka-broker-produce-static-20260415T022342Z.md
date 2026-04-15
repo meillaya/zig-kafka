@@ -1,0 +1,25 @@
+# Context Snapshot: zig-kafka-broker-produce-static
+
+- Task statement: Plan the next broker milestone after static Fetch: Produce into the same in-memory/static storage.
+- Desired outcome: A concrete PRD and test spec for the next educational broker slice.
+- Known facts/evidence:
+  - The broker now supports bootstrap wire behavior, topic listing via `DescribeTopicPartitions`, and static in-memory `Fetch`. (`src/server/broker.zig`, `src/server/handlers/*.zig`, `src/server/storage.zig`)
+  - The storage model is currently deterministic and in-memory, which is the natural substrate for a first educational Produce milestone. (`src/server/storage.zig`)
+  - The user roadmap puts Produce after Fetch in the broker track. (`.omx/specs/deep-interview-zig-kafka-from-scratch.md:43-52`)
+  - The client path already has shared `Produce` protocol support and record-batch encoding that can inform broker-side write handling. (`src/protocol/produce.zig`, `src/protocol/record_batch.zig`)
+- Constraints:
+  - Keep the milestone narrow and educational.
+  - Avoid durable storage, transactions, compression, or broader concurrency redesign.
+  - Preserve existing client, bootstrap, topic-listing, and static-fetch behavior.
+- Unknowns/open questions:
+  - Whether static storage should become mutable in-place or layer a new writable state store on top of the existing static definitions.
+  - What exact offset/append semantics to preserve for the first educational Produce slice.
+  - Whether the broker should accept multiple records per partition immediately or start with single-record append behavior.
+- Likely codebase touchpoints:
+  - `src/protocol/produce.zig`
+  - `src/server/storage.zig`
+  - `src/server/handlers/produce.zig`
+  - `src/server/broker.zig`
+  - `src/server/handlers/api_versions.zig`
+  - `tests/unit/**`
+  - `tests/integration/**`
