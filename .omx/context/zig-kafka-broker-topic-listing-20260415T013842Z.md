@@ -1,0 +1,25 @@
+# Context Snapshot: zig-kafka-broker-topic-listing
+
+- Task statement: Plan the next milestone after broker bootstrap: broker-side topic/partition listing.
+- Desired outcome: A concrete PRD and test spec for the next educational broker milestone.
+- Known facts/evidence:
+  - The repo now has a broker bootstrap slice that binds/listens, parses request headers, handles `ApiVersions`, and closes unsupported APIs deterministically. (`src/server/broker.zig:8-80`)
+  - The broker currently advertises only `ApiVersions` support. (`src/server/handlers/api_versions.zig:6-12`)
+  - The educational broker roadmap from the deep interview lists “Listing Partitions” immediately after bootstrap, specifically mentioning `DescribeTopicPartitions`. (`.omx/specs/deep-interview-zig-kafka-from-scratch.md:43-52`)
+  - The client-side work already includes shared protocol/header/frame primitives and a clean build/test structure that the broker track can continue reusing. (`build.zig:3-74`, `src/lib.zig:1-24`)
+- Constraints:
+  - Keep the next broker milestone narrow and educational.
+  - Preserve the current client path and the current broker bootstrap behavior.
+  - Avoid jumping into Produce/Fetch/storage in the same milestone.
+- Unknowns/open questions:
+  - Whether to implement `DescribeTopicPartitions` only, or also add `Metadata` in the same slice.
+  - Whether the topic catalog should be hard-coded/config-driven or derived from future storage.
+  - Whether unknown-topic behavior should return an empty listing or an explicit Kafka error code.
+- Likely codebase touchpoints:
+  - `src/server/broker.zig`
+  - `src/server/handlers/api_versions.zig`
+  - new `src/server/handlers/describe_topic_partitions.zig`
+  - new static topic-catalog config/module under `src/server/**`
+  - `tests/unit/**`
+  - `tests/integration/**`
+  - possibly `src/protocol/**` for the request/response schema
