@@ -11,6 +11,8 @@ test {
     _ = @import("server_request_test.zig");
     _ = @import("describe_topic_partitions_codec_test.zig");
     _ = @import("server_catalog_test.zig");
+    _ = @import("server_fetch_handler_test.zig");
+    _ = @import("server_storage_test.zig");
     _ = @import("produce_codec_test.zig");
     _ = @import("fetch_codec_test.zig");
 }

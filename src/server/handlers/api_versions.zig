@@ -1,8 +1,9 @@
 const std = @import("std");
 const api_versions = @import("../../protocol/api_versions.zig");
+const fetch = @import("../../protocol/fetch.zig");
+const describe_topic_partitions = @import("../../protocol/describe_topic_partitions.zig");
 const header = @import("../../protocol/header.zig");
 const primitives = @import("../../protocol/primitives.zig");
-const describe_topic_partitions = @import("../../protocol/describe_topic_partitions.zig");
 
 pub const supported_apis = [_]api_versions.SupportedApiVersion{
     .{
@@ -14,6 +15,11 @@ pub const supported_apis = [_]api_versions.SupportedApiVersion{
         .api_key = describe_topic_partitions.api_key,
         .min_version = describe_topic_partitions.min_version,
         .max_version = describe_topic_partitions.max_version,
+    },
+    .{
+        .api_key = fetch.api_key,
+        .min_version = fetch.min_version,
+        .max_version = fetch.max_version,
     },
 };
 

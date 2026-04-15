@@ -2,6 +2,8 @@ const std = @import("std");
 const kafka = @import("zig-kafka");
 
 const api_versions = kafka.protocol.api_versions;
+const describe = kafka.protocol.describe_topic_partitions;
+const fetch = kafka.protocol.fetch;
 const header = kafka.protocol.header;
 const primitives = kafka.protocol.primitives;
 
@@ -169,14 +171,29 @@ test "broker run target answers ApiVersions probes" {
     try std.testing.expect(response.api_versions.len >= 1);
 
     var saw_api_versions = false;
+    var saw_describe = false;
+    var saw_fetch = false;
     for (response.api_versions) |supported_api| {
-        if (supported_api.api_key != api_versions.api_key) continue;
-        saw_api_versions = true;
-        try std.testing.expectEqual(@as(i16, api_versions.min_version), supported_api.min_version);
-        try std.testing.expect(supported_api.max_version >= api_versions.max_version);
+        if (supported_api.api_key == api_versions.api_key) {
+            saw_api_versions = true;
+            try std.testing.expectEqual(@as(i16, api_versions.min_version), supported_api.min_version);
+            try std.testing.expect(supported_api.max_version >= api_versions.max_version);
+        }
+        if (supported_api.api_key == describe.api_key) {
+            saw_describe = true;
+            try std.testing.expectEqual(@as(i16, describe.min_version), supported_api.min_version);
+            try std.testing.expectEqual(@as(i16, describe.max_version), supported_api.max_version);
+        }
+        if (supported_api.api_key == fetch.api_key) {
+            saw_fetch = true;
+            try std.testing.expectEqual(@as(i16, fetch.min_version), supported_api.min_version);
+            try std.testing.expectEqual(@as(i16, fetch.max_version), supported_api.max_version);
+        }
     }
 
     try std.testing.expect(saw_api_versions);
+    try std.testing.expect(saw_describe);
+    try std.testing.expect(saw_fetch);
 }
 
 test "broker run target closes connection for unsupported api" {

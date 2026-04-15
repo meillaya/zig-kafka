@@ -62,7 +62,7 @@ fn appendRecordPayload(list: *std.array_list.Managed(u8), record: Record, offset
     try list.appendSlice(body.items);
 }
 
-pub fn encode(allocator: std.mem.Allocator, records: []const Record) ![]u8 {
+pub fn encodeWithBaseOffsetAndTimestamp(allocator: std.mem.Allocator, base_offset: i64, base_timestamp: i64, records: []const Record) ![]u8 {
     if (records.len == 0) return allocator.dupe(u8, &.{});
 
     var records_bytes = std.array_list.Managed(u8).init(allocator);
@@ -71,7 +71,6 @@ pub fn encode(allocator: std.mem.Allocator, records: []const Record) ![]u8 {
         try appendRecordPayload(&records_bytes, record, @intCast(idx));
     }
 
-    const base_timestamp = std.time.milliTimestamp();
     var inner = std.array_list.Managed(u8).init(allocator);
     defer inner.deinit();
     try primitives.appendInt(&inner, i32, -1); // partition leader epoch
@@ -92,7 +91,7 @@ pub fn encode(allocator: std.mem.Allocator, records: []const Record) ![]u8 {
 
     var batch = std.array_list.Managed(u8).init(allocator);
     errdefer batch.deinit();
-    try primitives.appendInt(&batch, i64, 0); // base offset ignored by broker on produce
+    try primitives.appendInt(&batch, i64, base_offset);
     try primitives.appendInt(&batch, i32, @intCast(inner.items.len));
     try batch.appendSlice(inner.items);
     return batch.toOwnedSlice();
@@ -172,4 +171,16 @@ pub fn decode(allocator: std.mem.Allocator, bytes: []const u8) ![]DecodedRecord 
     }
 
     return out.toOwnedSlice();
+}
+
+pub fn encodeWithBaseOffset(allocator: std.mem.Allocator, base_offset: i64, records: []const Record) ![]u8 {
+    return encodeWithBaseOffsetAndTimestamp(allocator, base_offset, std.time.milliTimestamp(), records);
+}
+
+pub fn encodeStatic(allocator: std.mem.Allocator, base_offset: i64, records: []const Record) ![]u8 {
+    return encodeWithBaseOffsetAndTimestamp(allocator, base_offset, 0, records);
+}
+
+pub fn encode(allocator: std.mem.Allocator, records: []const Record) ![]u8 {
+    return encodeWithBaseOffset(allocator, 0, records);
 }

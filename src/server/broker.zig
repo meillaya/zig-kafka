@@ -3,9 +3,11 @@ const Config = @import("config.zig").Config;
 const request = @import("request.zig");
 const api_versions = @import("../protocol/api_versions.zig");
 const describe = @import("../protocol/describe_topic_partitions.zig");
+const fetch = @import("../protocol/fetch.zig");
 const error_codes = @import("../protocol/error_codes.zig");
 const api_versions_handler = @import("handlers/api_versions.zig");
 const describe_handler = @import("handlers/describe_topic_partitions.zig");
+const fetch_handler = @import("handlers/fetch.zig");
 
 pub const Broker = struct {
     allocator: std.mem.Allocator,
@@ -61,6 +63,16 @@ pub const Broker = struct {
         }
     }
 
+    fn wrapResponse(self: *Broker, allocator: std.mem.Allocator, correlation_id: i32, header_version: u8, payload: []const u8) ![]u8 {
+        _ = self;
+        var message = std.array_list.Managed(u8).init(allocator);
+        errdefer message.deinit();
+        const response_header = @import("../protocol/header.zig").ResponseHeader{ .correlation_id = correlation_id };
+        try response_header.encodeVersion(&message, header_version);
+        try message.appendSlice(payload);
+        return message.toOwnedSlice();
+    }
+
     fn handleConnection(self: *Broker, stream: *std.net.Stream) !void {
         const frame = try request.readFrame(self.allocator, stream);
         var parsed = try request.parseOwnedFrame(frame);
@@ -83,6 +95,18 @@ pub const Broker = struct {
                 var resp = try describe_handler.handle(self.allocator, req);
                 defer describe.deinitResponse(self.allocator, &resp);
                 const response = try describe_handler.encodeResponse(self.allocator, parsed.correlation_id, resp);
+                defer self.allocator.free(response);
+                try request.writeFrame(stream, response);
+            },
+            fetch.api_key => {
+                if (parsed.api_version < fetch.min_version or parsed.api_version > fetch.max_version) return;
+                var req = try fetch.parseRequest(self.allocator, parsed.body);
+                defer req.deinit(self.allocator);
+                var resp = try fetch_handler.handle(self.allocator, req);
+                defer fetch_handler.deinitResponseBody(self.allocator, &resp);
+                const payload = try fetch.encodeResponse(self.allocator, resp);
+                defer self.allocator.free(payload);
+                const response = try self.wrapResponse(self.allocator, parsed.correlation_id, 0, payload);
                 defer self.allocator.free(response);
                 try request.writeFrame(stream, response);
             },

@@ -22,6 +22,8 @@ pub const server = struct {
     pub const Broker = @import("server/broker.zig").Broker;
     pub const request = @import("server/request.zig");
     pub const catalog = @import("server/catalog.zig");
+    pub const storage = @import("server/storage.zig");
     pub const api_versions_handler = @import("server/handlers/api_versions.zig");
     pub const describe_topic_partitions_handler = @import("server/handlers/describe_topic_partitions.zig");
+    pub const fetch_handler = @import("server/handlers/fetch.zig");
 };

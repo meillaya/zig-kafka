@@ -3,6 +3,7 @@ const kafka = @import("zig-kafka");
 
 const api_versions = kafka.protocol.api_versions;
 const describe = kafka.protocol.describe_topic_partitions;
+const fetch = kafka.protocol.fetch;
 const header = kafka.protocol.header;
 const primitives = kafka.protocol.primitives;
 const handler = kafka.server.api_versions_handler;
@@ -22,6 +23,7 @@ test "broker ApiVersions handler preserves correlation id and advertises support
 
     var saw_api_versions = false;
     var saw_describe = false;
+    var saw_fetch = false;
     for (response.api_versions) |supported_api| {
         if (supported_api.api_key == api_versions.api_key) {
             saw_api_versions = true;
@@ -33,7 +35,13 @@ test "broker ApiVersions handler preserves correlation id and advertises support
             try std.testing.expectEqual(describe.min_version, supported_api.min_version);
             try std.testing.expectEqual(describe.max_version, supported_api.max_version);
         }
+        if (supported_api.api_key == fetch.api_key) {
+            saw_fetch = true;
+            try std.testing.expectEqual(fetch.min_version, supported_api.min_version);
+            try std.testing.expectEqual(fetch.max_version, supported_api.max_version);
+        }
     }
     try std.testing.expect(saw_api_versions);
     try std.testing.expect(saw_describe);
+    try std.testing.expect(saw_fetch);
 }
