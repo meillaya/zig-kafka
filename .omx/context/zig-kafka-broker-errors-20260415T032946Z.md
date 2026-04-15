@@ -1,0 +1,21 @@
+# Context Snapshot: zig-kafka-broker-errors
+
+- Task statement: Plan the next broker milestone after graceful shutdown: richer deterministic error semantics.
+- Desired outcome: A concrete PRD and test spec for the next educational broker slice.
+- Known facts/evidence:
+  - The broker already has deterministic resource-level errors for known/unknown topic and invalid partition cases in DescribeTopicPartitions, Fetch, and Produce.
+  - For supported API keys with unsupported versions, broker behavior is still mostly close/return rather than protocol-valid error responses.
+  - Unknown API-key close behavior is already part of the broker contract and covered by tests.
+- Constraints:
+  - Keep the milestone bounded to error semantics, not new feature surface.
+  - Preserve all prior broker and client milestones.
+  - Do not widen into durability, new APIs, or distributed behavior.
+- Unknowns/open questions:
+  - How much of the request body must be parsed to emit a useful error response for unsupported versions.
+  - Whether all supported APIs should normalize unsupported-version handling in one step.
+- Likely codebase touchpoints:
+  - src/server/broker.zig
+  - src/server/handlers/describe_topic_partitions.zig
+  - src/server/handlers/fetch.zig
+  - src/server/handlers/produce.zig
+  - tests/integration/**
