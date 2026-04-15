@@ -1,0 +1,24 @@
+# Context Snapshot: zig-kafka-broker-fetch-static
+
+- Task statement: Plan the next broker milestone after topic listing: Fetch over in-memory/static records.
+- Desired outcome: A concrete PRD and test spec for the next educational single-broker broker slice.
+- Known facts/evidence:
+  - The broker currently supports TCP accept, request framing, shared header parsing, `ApiVersions`, deterministic unsupported-API close, and `DescribeTopicPartitions` over a static topic catalog. (`src/server/broker.zig`, `src/server/catalog.zig`, `src/server/handlers/api_versions.zig`, `src/server/handlers/describe_topic_partitions.zig`)
+  - The client already has a `Fetch v4` protocol codec and a record-batch decoder, which can inform or be reused by the broker-side fetch response work. (`src/protocol/fetch.zig`, `src/protocol/record_batch.zig`)
+  - The deep interview roadmap explicitly places Fetch after listing and before Produce in the educational broker track. (`.omx/specs/deep-interview-zig-kafka-from-scratch.md:43-52`)
+- Constraints:
+  - Keep the milestone narrow and educational.
+  - Avoid implementing Produce or durable storage in the same slice.
+  - Preserve existing client/broker bootstrap/topic-listing behavior.
+- Unknowns/open questions:
+  - Whether to use the existing client `Fetch v4` protocol shape for the broker response, or add a broker-specific simplified path.
+  - How static records should be represented: per-topic/per-partition arrays of payloads vs prebuilt record batches.
+  - How to model empty topic/unknown topic/fetch-from-past-end semantics in the educational broker.
+- Likely codebase touchpoints:
+  - `src/protocol/fetch.zig`
+  - `src/protocol/record_batch.zig`
+  - `src/server/broker.zig`
+  - `src/server/catalog.zig` or a new `src/server/storage.zig`
+  - new `src/server/handlers/fetch.zig`
+  - `tests/unit/**`
+  - `tests/integration/**`
