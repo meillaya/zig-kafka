@@ -1,0 +1,21 @@
+# Context Snapshot: zig-kafka-broker-pipelined-requests
+
+- Task statement: Plan the next broker milestone after concurrent clients: concurrent/pipelined requests within a single connection.
+- Desired outcome: A concrete PRD and test spec for the next educational broker slice.
+- Known facts/evidence:
+  - The broker now serves multiple clients concurrently, but each accepted socket is still handled with a single request then closed. 
+  - The roadmap explicitly lists concurrent clients / serial requests before concurrent requests.
+  - Shared mutable in-memory storage is now synchronized and exercised by Produce/Fetch under concurrent clients.
+- Constraints:
+  - Keep the milestone educational and bounded.
+  - Preserve all prior milestones unchanged at the protocol level.
+  - Add pipelined/concurrent-per-connection behavior without widening into durability or cluster behavior.
+- Unknowns/open questions:
+  - Whether to support simple sequential multi-request connections first, then overlapping/pipelined requests in the same connection, or both in one step.
+  - How much request ordering guarantee to preserve for responses on one connection.
+  - Whether one connection worker should process requests in a loop with internal task spawning or a simpler bounded queue.
+- Likely codebase touchpoints:
+  - src/server/broker.zig
+  - src/server/request.zig
+  - tests/integration/**
+  - maybe small synchronization/queue helpers under src/server/**
