@@ -29,7 +29,10 @@ fn headerVersionFor(api_key: i16, api_version: i16) u8 {
 
 pub fn readFrame(allocator: std.mem.Allocator, stream: *std.net.Stream) ![]u8 {
     var size_buf: [4]u8 = undefined;
-    const size_read = try stream.readAtLeast(&size_buf, size_buf.len);
+    const size_read = stream.readAtLeast(&size_buf, size_buf.len) catch |err| switch (err) {
+        error.ConnectionResetByPeer => return error.EndOfStream,
+        else => return err,
+    };
     if (size_read == 0) return error.EndOfStream;
     if (size_read != size_buf.len) return error.UnexpectedEOF;
     const frame_len = std.mem.readInt(i32, &size_buf, .big);

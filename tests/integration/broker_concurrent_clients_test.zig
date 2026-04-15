@@ -58,7 +58,7 @@ fn withBrokerProcess(allocator: std.mem.Allocator, port: u16, delay_ms: u32, com
     child.cwd = cwd;
     child.stdin_behavior = .Ignore;
     child.stdout_behavior = .Ignore;
-    child.stderr_behavior = .Ignore;
+    child.stderr_behavior = .Inherit;
     try child.spawn();
     defer {
         _ = child.kill() catch {};
